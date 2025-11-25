@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, UploadCloud, FileAudio, CheckCircle, AlertTriangle } from 'lucide-react';
+import { Mic, UploadCloud, FileAudio, CheckCircle, AlertTriangle, Copy, Check } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { generateMeetingSummary } from '../services/geminiService';
@@ -10,6 +10,7 @@ const MeetingSummary: React.FC = () => {
   const [status, setStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [result, setResult] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+  const [copied, setCopied] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -17,6 +18,7 @@ const MeetingSummary: React.FC = () => {
       setResult(null);
       setErrorMsg('');
       setStatus(LoadingState.IDLE);
+      setCopied(false);
     }
   };
 
@@ -25,6 +27,7 @@ const MeetingSummary: React.FC = () => {
 
     setStatus(LoadingState.LOADING);
     setErrorMsg('');
+    setCopied(false);
     try {
       const markdown = await generateMeetingSummary(file);
       setResult(markdown);
@@ -33,6 +36,17 @@ const MeetingSummary: React.FC = () => {
       console.error(error);
       setStatus(LoadingState.ERROR);
       setErrorMsg(error.message || "未知错误");
+    }
+  };
+
+  const handleCopy = async () => {
+    if (!result) return;
+    try {
+      await navigator.clipboard.writeText(result);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000); // Reset after 2 seconds
+    } catch (err) {
+      console.error('Failed to copy text: ', err);
     }
   };
 
@@ -113,10 +127,32 @@ const MeetingSummary: React.FC = () => {
 
       {result && (
         <div className="animate-fade-in space-y-4">
-          <div className="flex items-center gap-2 text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
-            <CheckCircle className="w-5 h-5" />
-            <span className="font-medium">整理完成！您可以复制下方内容分享给团契。</span>
+          <div className="flex items-center justify-between text-emerald-700 bg-emerald-50 p-3 rounded-lg border border-emerald-100">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="w-5 h-5" />
+              <span className="font-medium">整理完成！</span>
+            </div>
+            
+            <button
+              onClick={handleCopy}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-sm font-medium transition-all ${
+                copied 
+                  ? 'bg-emerald-200 text-emerald-800' 
+                  : 'bg-white border border-emerald-200 hover:bg-emerald-100'
+              }`}
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4" /> 已复制
+                </>
+              ) : (
+                <>
+                  <Copy className="w-4 h-4" /> 复制全文
+                </>
+              )}
+            </button>
           </div>
+          
           <MarkdownRenderer content={result} />
         </div>
       )}

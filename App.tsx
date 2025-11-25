@@ -5,6 +5,7 @@ import PrepAssistant from './pages/PrepAssistant';
 import MeetingSummary from './pages/MeetingSummary';
 import PastorCorner from './pages/PastorCorner';
 import Dashboard from './pages/Dashboard';
+import LoginGate from './components/LoginGate';
 
 const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const location = useLocation();
@@ -88,14 +89,16 @@ const Layout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 const App: React.FC = () => {
   return (
     <HashRouter>
-      <Layout>
-        <Routes>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/prep" element={<PrepAssistant />} />
-          <Route path="/pastor" element={<PastorCorner />} />
-          <Route path="/summary" element={<MeetingSummary />} />
-        </Routes>
-      </Layout>
+      <LoginGate>
+        <Layout>
+          <Routes>
+            <Route path="/" element={<Dashboard />} />
+            <Route path="/prep" element={<PrepAssistant />} />
+            <Route path="/pastor" element={<PastorCorner />} />
+            <Route path="/summary" element={<MeetingSummary />} />
+          </Routes>
+        </Layout>
+      </LoginGate>
     </HashRouter>
   );
 };
