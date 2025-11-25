@@ -11,6 +11,7 @@ const LoginGate: React.FC<LoginGateProps> = ({ children }) => {
   const [error, setError] = useState('');
 
   // Default password is '123456' if not set in environment variables
+  // logical check only, not exposed to UI
   const CORRECT_PASSWORD = process.env.APP_PASSWORD || '123456';
 
   useEffect(() => {
@@ -63,7 +64,7 @@ const LoginGate: React.FC<LoginGateProps> = ({ children }) => {
                   value={input}
                   onChange={(e) => setInput(e.target.value)}
                   className="block w-full pl-10 pr-3 py-3 border border-slate-300 rounded-lg leading-5 bg-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm transition-all"
-                  placeholder="默认密码: 123456"
+                  placeholder="请输入访问密码"
                   required
                 />
               </div>
