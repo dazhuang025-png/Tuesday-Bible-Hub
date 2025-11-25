@@ -6,9 +6,27 @@ import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
 // 1. 文本生成部分 (generatePrepOutline, generatePastorInsights) 可以轻松替换为 OpenAI 兼容接口。
 // 2. 录音部分 (generateMeetingSummary) Gemini 具有原生多模态优势。
 //    若换国内模型，需先调用 ASR (如阿里通义听悟) 转文字，再传给 LLM 总结。
+
+// Safely access process.env (injected by vite.config.ts define)
+const API_KEY = process.env.API_KEY;
+const API_BASE_URL = process.env.API_BASE_URL;
+
+// Debug logging visible in Browser Console (F12)
+console.log(`%c[Tuesday Bible Hub] Config Check:`, "color: #4f46e5; font-weight: bold;");
+if (API_KEY) {
+  console.log(`✅ API Key: Detected (Length: ${API_KEY.length})`);
+} else {
+  console.log(`❌ API Key: MISSING (Undefined). Please check Vercel Env Vars.`);
+}
+if (API_BASE_URL) {
+  console.log(`🌐 Base URL: Custom (${API_BASE_URL})`);
+} else {
+  console.log(`🌐 Base URL: Default (Google Official)`);
+}
+
 const ai = new GoogleGenAI({ 
-  apiKey: process.env.API_KEY,
-  baseUrl: process.env.API_BASE_URL // 支持反向代理，解决国内访问 Google API 的网络问题
+  apiKey: API_KEY || "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT", 
+  baseUrl: API_BASE_URL // Optional: For using proxy in China
 });
 
 // Models
@@ -47,11 +65,20 @@ const handleGeminiError = (error: any): never => {
   let userMessage = "发生了未知错误，请重试。";
   const errorStr = error.toString().toLowerCase();
 
-  if (errorStr.includes('fetch') || errorStr.includes('network') || errorStr.includes('failed to fetch')) {
-    userMessage = "🚫 网络连接失败。原因可能是：1. 中国大陆地区未开启 VPN。 2. Vercel 部署未配置 API_BASE_URL 中转地址。";
-  } else if (errorStr.includes('400') || errorStr.includes('api key') || errorStr.includes('invalid argument')) {
-    userMessage = "🔑 API Key 配置无效或缺失。请检查 Vercel 环境变量 API_KEY 是否正确设置。";
-  } else if (errorStr.includes('503') || errorStr.includes('overloaded')) {
+  // 1. Check for missing key explicitly
+  if (!API_KEY || errorStr.includes('api key must be a string') || API_KEY === "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT") {
+     userMessage = "🔑 环境变量未读取到 (Missing API Key)。\n请检查：\n1. Vercel 后台 Environment Variables 是否已添加 API_KEY (Name就是API_KEY)。\n2. 是否添加了 vite.config.ts 配置文件。\n3. 添加后是否点击了 Redeploy (重新部署)。";
+  } 
+  // 2. Network / Proxy issues
+  else if (errorStr.includes('fetch') || errorStr.includes('network') || errorStr.includes('failed to fetch')) {
+    userMessage = "🚫 网络连接失败 (Network Error)。\n原因可能是：\n1. 中国大陆地区未开启 VPN。\n2. Vercel 部署未配置 API_BASE_URL 中转地址。";
+  } 
+  // 3. Invalid Key (Google rejected it)
+  else if (errorStr.includes('400') || errorStr.includes('invalid argument') || errorStr.includes('api key not valid')) {
+    userMessage = "🔑 API Key 无效 (Invalid Key)。\n代码成功读取到了 Key，但 Google 拒绝了请求。\n请检查 Key 是否复制完整，或者该 Key 所在的 Google Cloud 项目是否欠费/被停用。";
+  } 
+  // 4. Server Errors
+  else if (errorStr.includes('503') || errorStr.includes('overloaded')) {
     userMessage = "🐢 Google 服务暂时繁忙 (503)，请稍后重试。";
   } else {
     userMessage = `⚠️ 系统错误: ${error.message || errorStr}`;
@@ -65,6 +92,8 @@ const handleGeminiError = (error: any): never => {
  */
 export const generatePrepOutline = async (book: string, chapter: string): Promise<string> => {
   try {
+    if (!API_KEY || API_KEY === "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT") throw new Error("API key must be a string"); 
+
     const prompt = `
       你是一位专业的《圣经百科全书》和《串珠汇编》助手。
       
@@ -117,6 +146,8 @@ export const generatePrepOutline = async (book: string, chapter: string): Promis
  */
 export const generateMeetingSummary = async (audioFile: File): Promise<string> => {
   try {
+    if (!API_KEY || API_KEY === "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT") throw new Error("API key must be a string");
+
     const audioPart = await fileToGenerativePart(audioFile);
     
     const prompt = `
@@ -170,6 +201,8 @@ export const generateMeetingSummary = async (audioFile: File): Promise<string> =
  */
 export const generatePastorInsights = async (book: string, chapter: string, focus: string): Promise<string> => {
   try {
+    if (!API_KEY || API_KEY === "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT") throw new Error("API key must be a string");
+
     const prompt = `
       你是一位博士级神学研究助理（Research Assistant），正在协助一位服侍30年的资深牧者。
       
