@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { BookOpen, Search, Sparkles } from 'lucide-react';
+import { BookOpen, Search, Sparkles, AlertTriangle } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { generatePrepOutline } from '../services/geminiService';
@@ -10,6 +10,7 @@ const PrepAssistant: React.FC = () => {
   const [chapter, setChapter] = useState('');
   const [status, setStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [result, setResult] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -17,14 +18,16 @@ const PrepAssistant: React.FC = () => {
 
     setStatus(LoadingState.LOADING);
     setResult(null);
+    setErrorMsg('');
 
     try {
       const markdown = await generatePrepOutline(book, chapter);
       setResult(markdown);
       setStatus(LoadingState.SUCCESS);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setStatus(LoadingState.ERROR);
+      setErrorMsg(error.message || "未知错误");
     }
   };
 
@@ -86,8 +89,12 @@ const PrepAssistant: React.FC = () => {
       </div>
 
       {status === LoadingState.ERROR && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
-          生成失败，请检查网络或稍后重试。
+        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">生成失败</p>
+            <p className="text-sm mt-1">{errorMsg}</p>
+          </div>
         </div>
       )}
 

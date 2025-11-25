@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Mic, UploadCloud, FileAudio, CheckCircle } from 'lucide-react';
+import { Mic, UploadCloud, FileAudio, CheckCircle, AlertTriangle } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { generateMeetingSummary } from '../services/geminiService';
@@ -9,11 +9,13 @@ const MeetingSummary: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [status, setStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [result, setResult] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
       setFile(e.target.files[0]);
       setResult(null);
+      setErrorMsg('');
       setStatus(LoadingState.IDLE);
     }
   };
@@ -22,13 +24,15 @@ const MeetingSummary: React.FC = () => {
     if (!file) return;
 
     setStatus(LoadingState.LOADING);
+    setErrorMsg('');
     try {
       const markdown = await generateMeetingSummary(file);
       setResult(markdown);
       setStatus(LoadingState.SUCCESS);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setStatus(LoadingState.ERROR);
+      setErrorMsg(error.message || "未知错误");
     }
   };
 
@@ -98,8 +102,12 @@ const MeetingSummary: React.FC = () => {
       )}
 
       {status === LoadingState.ERROR && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
-          处理失败。请确保文件是有效的音频格式，并且 API Key 配置正确。
+        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">处理失败</p>
+            <p className="text-sm mt-1">{errorMsg}</p>
+          </div>
         </div>
       )}
 

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Feather, BookMarked, ScrollText } from 'lucide-react';
+import { Feather, BookMarked, ScrollText, AlertTriangle } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { generatePastorInsights } from '../services/geminiService';
@@ -11,6 +11,7 @@ const PastorCorner: React.FC = () => {
   const [focus, setFocus] = useState('');
   const [status, setStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [result, setResult] = useState<string | null>(null);
+  const [errorMsg, setErrorMsg] = useState<string>('');
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -18,14 +19,16 @@ const PastorCorner: React.FC = () => {
 
     setStatus(LoadingState.LOADING);
     setResult(null);
+    setErrorMsg('');
 
     try {
       const markdown = await generatePastorInsights(book, chapter, focus);
       setResult(markdown);
       setStatus(LoadingState.SUCCESS);
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
       setStatus(LoadingState.ERROR);
+      setErrorMsg(error.message || "未知错误");
     }
   };
 
@@ -95,8 +98,12 @@ const PastorCorner: React.FC = () => {
       </div>
 
       {status === LoadingState.ERROR && (
-        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200">
-          生成失败，请稍后重试。
+        <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
+          <div>
+            <p className="font-bold">生成失败</p>
+            <p className="text-sm mt-1">{errorMsg}</p>
+          </div>
         </div>
       )}
 

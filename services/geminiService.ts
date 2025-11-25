@@ -39,6 +39,28 @@ export const fileToGenerativePart = async (file: File): Promise<{ inlineData: { 
 };
 
 /**
+ * 统一错误处理函数
+ */
+const handleGeminiError = (error: any): never => {
+  console.error("Gemini API Error Details:", error);
+  
+  let userMessage = "发生了未知错误，请重试。";
+  const errorStr = error.toString().toLowerCase();
+
+  if (errorStr.includes('fetch') || errorStr.includes('network') || errorStr.includes('failed to fetch')) {
+    userMessage = "🚫 网络连接失败。原因可能是：1. 中国大陆地区未开启 VPN。 2. Vercel 部署未配置 API_BASE_URL 中转地址。";
+  } else if (errorStr.includes('400') || errorStr.includes('api key') || errorStr.includes('invalid argument')) {
+    userMessage = "🔑 API Key 配置无效或缺失。请检查 Vercel 环境变量 API_KEY 是否正确设置。";
+  } else if (errorStr.includes('503') || errorStr.includes('overloaded')) {
+    userMessage = "🐢 Google 服务暂时繁忙 (503)，请稍后重试。";
+  } else {
+    userMessage = `⚠️ 系统错误: ${error.message || errorStr}`;
+  }
+
+  throw new Error(userMessage);
+};
+
+/**
  * Generates the Leader Preparation Context (Information only, no spiritual conclusions)
  */
 export const generatePrepOutline = async (book: string, chapter: string): Promise<string> => {
@@ -85,8 +107,8 @@ export const generatePrepOutline = async (book: string, chapter: string): Promis
 
     return response.text || "无法生成内容，请重试。";
   } catch (error) {
-    console.error("Gemini Prep Error:", error);
-    throw error;
+    handleGeminiError(error);
+    return ""; // Should not reach here
   }
 };
 
@@ -138,8 +160,8 @@ export const generateMeetingSummary = async (audioFile: File): Promise<string> =
 
     return response.text || "无法分析录音，请重试。";
   } catch (error) {
-    console.error("Gemini Summary Error:", error);
-    throw error;
+    handleGeminiError(error);
+    return "";
   }
 };
 
@@ -189,7 +211,7 @@ export const generatePastorInsights = async (book: string, chapter: string, focu
 
     return response.text || "无法生成深度内容。";
   } catch (error) {
-    console.error("Gemini Pastor Error:", error);
-    throw error;
+    handleGeminiError(error);
+    return "";
   }
 };
