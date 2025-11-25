@@ -246,6 +246,10 @@ export const generatePastorInsights = async (book: string, chapter: string, focu
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: PASTOR_MODEL,
       contents: prompt,
+      config: {
+        // Use Thinking Config to enhance depth even on Flash model
+        // thinkingConfig: { thinkingBudget: 1024 }, // Optional: Enable if needed and available on Flash
+      }
     });
 
     return response.text || "无法生成深度内容。";
@@ -273,41 +277,49 @@ export const generateTheologicalTopics = async (book: string, chapter: string): 
       请找出 3-4 个该章节中最重要的神学议题、历史上著名的释经争议或核心教义难点。
       目标是供一位资深牧者选择，以便进行深度研经。
 
-      请返回一个纯 JSON 数组 (Array of Objects)，不要包含 Markdown 格式标记。结构如下：
-      [
-        {
-          "title": "简短的标签名 (例如 '预定论的张力')",
-          "query": "当用户点击标签时，填入文本框的完整指令 (例如 '请重点分析本章中关于预定论的经文，并对比加尔文与阿米念的解释...')"
-        }
-      ]
+      请返回一个纯 JSON 格式，结构如下：
+      {
+        "topics": [
+          {
+            "title": "简短的标签名 (例如 '预定论的张力')",
+            "query": "当用户点击标签时，填入文本框的完整指令 (例如 '请重点分析本章中关于预定论的经文，并对比加尔文与阿米念的解释...')"
+          }
+        ]
+      }
     `;
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash', // JSON mode works well on Flash
+      model: 'gemini-2.5-flash', 
       contents: prompt,
       config: {
         responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.ARRAY,
-          items: {
-            type: Type.OBJECT,
-            properties: {
-              title: { type: Type.STRING },
-              query: { type: Type.STRING },
-            },
-            required: ["title", "query"]
-          }
-        }
       }
     });
 
-    if (response.text) {
-      return JSON.parse(response.text) as SuggestedTopic[];
+    const text = response.text;
+    if (!text) return [];
+
+    // Robust parsing: Remove markdown code blocks if present (e.g., ```json ... ```)
+    const cleanedText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
+    try {
+      const parsed = JSON.parse(cleanedText);
+      // Support both { topics: [...] } (requested) and raw [...] (fallback)
+      if (Array.isArray(parsed)) {
+          return parsed as SuggestedTopic[];
+      } else if (parsed.topics && Array.isArray(parsed.topics)) {
+          return parsed.topics as SuggestedTopic[];
+      }
+      return [];
+    } catch (parseError) {
+      console.error("JSON Parse failed", text);
+      return [];
     }
-    return [];
+
   } catch (error) {
+    // IMPORTANT: Don't swallow errors silently. Throw it so the UI knows.
     console.error("Topic generation failed:", error);
-    // Don't throw blocking error for this auxiliary feature, just return empty
+    handleGeminiError(error); 
     return [];
   }
 };

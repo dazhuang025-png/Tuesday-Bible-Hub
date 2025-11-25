@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Feather, BookMarked, ScrollText, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
+import { Feather, BookMarked, ScrollText, AlertTriangle, Sparkles, ArrowRight, Info } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { generatePastorInsights, generateTheologicalTopics, SuggestedTopic } from '../services/geminiService';
@@ -17,6 +17,8 @@ const PastorCorner: React.FC = () => {
   // New state for Topic Suggestions
   const [suggestedTopics, setSuggestedTopics] = useState<SuggestedTopic[]>([]);
   const [loadingTopics, setLoadingTopics] = useState(false);
+  const [topicError, setTopicError] = useState<string>('');
+  const [topicsFetched, setTopicsFetched] = useState(false);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -39,22 +41,28 @@ const PastorCorner: React.FC = () => {
 
   const handleInspire = async () => {
     if (!book || !chapter) {
-      alert("请先输入书卷和章节");
+      alert("请先输入书卷名和章节号，AI 才能帮您探测关键议题。");
       return;
     }
+    
     setLoadingTopics(true);
+    setTopicError('');
+    setTopicsFetched(false);
+    setSuggestedTopics([]);
+
     try {
       const topics = await generateTheologicalTopics(book, chapter);
       setSuggestedTopics(topics);
-    } catch (e) {
-      console.error(e);
+      setTopicsFetched(true);
+    } catch (e: any) {
+      console.error("Topic error:", e);
+      setTopicError(e.message || "无法获取议题");
     } finally {
       setLoadingTopics(false);
     }
   };
 
   const handleTopicClick = (query: string) => {
-    // Append or set? Setting is cleaner for a "Template" feel.
     setFocus(query);
   };
 
@@ -104,11 +112,13 @@ const PastorCorner: React.FC = () => {
               <button 
                 type="button"
                 onClick={handleInspire}
-                disabled={loadingTopics || !book || !chapter}
+                disabled={loadingTopics}
                 className={`text-xs flex items-center gap-1 px-3 py-1 rounded-full border transition-all ${
+                  loadingTopics ? 'opacity-70 cursor-wait' : 'cursor-pointer hover:shadow-sm'
+                } ${
                   book && chapter 
                     ? 'border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100' 
-                    : 'border-slate-100 text-slate-400 bg-slate-50 cursor-not-allowed'
+                    : 'border-slate-200 text-slate-500 bg-white hover:bg-slate-50'
                 }`}
               >
                 {loadingTopics ? (
@@ -120,6 +130,22 @@ const PastorCorner: React.FC = () => {
               </button>
             </div>
 
+            {/* Error Message for Topics */}
+            {topicError && (
+              <div className="text-xs text-red-600 bg-red-50 p-2 rounded flex items-start gap-2 animate-fade-in">
+                <AlertTriangle className="w-3 h-3 mt-0.5 flex-shrink-0" />
+                <span>{topicError}</span>
+              </div>
+            )}
+
+            {/* Empty State for Topics */}
+            {topicsFetched && suggestedTopics.length === 0 && !topicError && (
+              <div className="text-xs text-slate-500 bg-slate-50 p-2 rounded flex items-center gap-2 animate-fade-in">
+                <Info className="w-3 h-3" />
+                <span>未探测到特定的争议议题，请尝试手动输入。</span>
+              </div>
+            )}
+
             {/* Topic Chips */}
             {suggestedTopics.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 animate-fade-in">
@@ -128,10 +154,10 @@ const PastorCorner: React.FC = () => {
                     key={idx}
                     type="button"
                     onClick={() => handleTopicClick(topic.query)}
-                    className="inline-flex items-center text-xs px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-md hover:bg-amber-50 hover:border-amber-300 transition-colors shadow-sm"
+                    className="inline-flex items-center text-xs px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-md hover:bg-amber-50 hover:border-amber-300 transition-colors shadow-sm text-left"
                   >
                     {topic.title}
-                    <ArrowRight className="w-3 h-3 ml-1 opacity-50" />
+                    <ArrowRight className="w-3 h-3 ml-1 opacity-50 flex-shrink-0" />
                   </button>
                 ))}
               </div>
