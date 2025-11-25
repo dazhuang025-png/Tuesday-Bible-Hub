@@ -1,17 +1,22 @@
 import React, { useState } from 'react';
-import { Feather, BookMarked, ScrollText, AlertTriangle } from 'lucide-react';
+import { Feather, BookMarked, ScrollText, AlertTriangle, Sparkles, ArrowRight } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
-import { generatePastorInsights } from '../services/geminiService';
+import { generatePastorInsights, generateTheologicalTopics, SuggestedTopic } from '../services/geminiService';
 import { LoadingState } from '../types';
 
 const PastorCorner: React.FC = () => {
   const [book, setBook] = useState('');
   const [chapter, setChapter] = useState('');
   const [focus, setFocus] = useState('');
+  
   const [status, setStatus] = useState<LoadingState>(LoadingState.IDLE);
   const [result, setResult] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string>('');
+
+  // New state for Topic Suggestions
+  const [suggestedTopics, setSuggestedTopics] = useState<SuggestedTopic[]>([]);
+  const [loadingTopics, setLoadingTopics] = useState(false);
 
   const handleGenerate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -32,6 +37,27 @@ const PastorCorner: React.FC = () => {
     }
   };
 
+  const handleInspire = async () => {
+    if (!book || !chapter) {
+      alert("请先输入书卷和章节");
+      return;
+    }
+    setLoadingTopics(true);
+    try {
+      const topics = await generateTheologicalTopics(book, chapter);
+      setSuggestedTopics(topics);
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setLoadingTopics(false);
+    }
+  };
+
+  const handleTopicClick = (query: string) => {
+    // Append or set? Setting is cleaner for a "Template" feel.
+    setFocus(query);
+  };
+
   return (
     <div className="space-y-6">
       <div className="bg-amber-50/50 p-6 rounded-xl shadow-sm border border-amber-100">
@@ -45,7 +71,7 @@ const PastorCorner: React.FC = () => {
           </div>
         </div>
 
-        <form onSubmit={handleGenerate} className="space-y-4">
+        <form onSubmit={handleGenerate} className="space-y-6">
           <div className="grid md:grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-slate-700 mb-1">书卷</label>
@@ -71,13 +97,51 @@ const PastorCorner: React.FC = () => {
             </div>
           </div>
           
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">特定研究方向 (可选)</label>
+          {/* Smart Topic Detection Section */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="block text-sm font-medium text-slate-700">特定研究方向 (可选)</label>
+              <button 
+                type="button"
+                onClick={handleInspire}
+                disabled={loadingTopics || !book || !chapter}
+                className={`text-xs flex items-center gap-1 px-3 py-1 rounded-full border transition-all ${
+                  book && chapter 
+                    ? 'border-indigo-200 text-indigo-700 bg-indigo-50 hover:bg-indigo-100' 
+                    : 'border-slate-100 text-slate-400 bg-slate-50 cursor-not-allowed'
+                }`}
+              >
+                {loadingTopics ? (
+                  <Sparkles className="w-3 h-3 animate-spin" />
+                ) : (
+                  <Sparkles className="w-3 h-3" />
+                )}
+                {loadingTopics ? "分析中..." : "🔍 探测关键议题"}
+              </button>
+            </div>
+
+            {/* Topic Chips */}
+            {suggestedTopics.length > 0 && (
+              <div className="flex flex-wrap gap-2 mb-2 animate-fade-in">
+                {suggestedTopics.map((topic, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleTopicClick(topic.query)}
+                    className="inline-flex items-center text-xs px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-md hover:bg-amber-50 hover:border-amber-300 transition-colors shadow-sm"
+                  >
+                    {topic.title}
+                    <ArrowRight className="w-3 h-3 ml-1 opacity-50" />
+                  </button>
+                ))}
+              </div>
+            )}
+
             <textarea
               value={focus}
               onChange={(e) => setFocus(e.target.value)}
-              placeholder="例如：请分析本章中某个希腊文动词的时态意义，或者对比加尔文与阿米念对此处的不同解释..."
-              className="w-full rounded-lg border-slate-300 border p-2 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none h-24"
+              placeholder="如果您有特定的神学负担，请在此输入。或点击上方“探测关键议题”获取灵感..."
+              className="w-full rounded-lg border-slate-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none h-24 text-sm"
             />
           </div>
 
@@ -91,7 +155,7 @@ const PastorCorner: React.FC = () => {
               生成研经素材
             </Button>
             <p className="text-xs text-slate-500 mt-2 text-center">
-               基于系统神学与圣经原文字典进行深度分析。
+               基于 gemini-2.5-flash 模型进行深度神学分析
             </p>
           </div>
         </form>

@@ -1,4 +1,4 @@
-import { GoogleGenAI, GenerateContentResponse } from "@google/genai";
+import { GoogleGenAI, GenerateContentResponse, Type } from "@google/genai";
 
 // Initialize the Gemini Client
 // 💡 架构提示 (Architecture Note):
@@ -97,7 +97,7 @@ const handleGeminiError = (error: any): never => {
 };
 
 /**
- * Generates the Leader Preparation Context (Information only, no spiritual conclusions)
+ * Generates the Leader Preparation Context
  */
 export const generatePrepOutline = async (book: string, chapter: string): Promise<string> => {
   try {
@@ -218,7 +218,7 @@ export const generatePastorInsights = async (book: string, chapter: string, focu
       **用户背景**：牧者对圣经非常熟悉，不需要基础的经文概览。
       **核心需求**：他需要顶级的学术素材，用于支持他在聚会后半段（1.5小时）的深度讲论。
 
-      针对《${book}》第 ${chapter} 章，${focus ? `特别关注：${focus}，` : ""}请提供以下深度研究资料：
+      针对《${book}》第 ${chapter} 章，${focus ? `请特别围绕以下方向进行研究："${focus}"。` : "请提供通用的深度研究资料。"}
 
       # 🏛️ 牧者研经室：深度素材 (${book} ${chapter})
 
@@ -243,9 +243,6 @@ export const generatePastorInsights = async (book: string, chapter: string, focu
       请使用学术且严谨的语言，支持牧者进行厚重的神学输出。
     `;
 
-    // Note: We removed 'thinkingConfig' because gemini-2.5-flash (standard) doesn't strictly require it 
-    // and maintaining it might cause errors if the model variant changes.
-    // The detailed prompt above acts as the "reasoning guide".
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: PASTOR_MODEL,
       contents: prompt,
@@ -255,5 +252,62 @@ export const generatePastorInsights = async (book: string, chapter: string, focu
   } catch (error) {
     handleGeminiError(error);
     return "";
+  }
+};
+
+/**
+ * 智能探测神学议题 (Topic Suggestions)
+ */
+export interface SuggestedTopic {
+  title: string;
+  query: string;
+}
+
+export const generateTheologicalTopics = async (book: string, chapter: string): Promise<SuggestedTopic[]> => {
+  try {
+    if (!API_KEY || API_KEY === "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT") throw new Error("API key must be a string");
+
+    const prompt = `
+      分析《${book}》第 ${chapter} 章。
+      
+      请找出 3-4 个该章节中最重要的神学议题、历史上著名的释经争议或核心教义难点。
+      目标是供一位资深牧者选择，以便进行深度研经。
+
+      请返回一个纯 JSON 数组 (Array of Objects)，不要包含 Markdown 格式标记。结构如下：
+      [
+        {
+          "title": "简短的标签名 (例如 '预定论的张力')",
+          "query": "当用户点击标签时，填入文本框的完整指令 (例如 '请重点分析本章中关于预定论的经文，并对比加尔文与阿米念的解释...')"
+        }
+      ]
+    `;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-2.5-flash', // JSON mode works well on Flash
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.ARRAY,
+          items: {
+            type: Type.OBJECT,
+            properties: {
+              title: { type: Type.STRING },
+              query: { type: Type.STRING },
+            },
+            required: ["title", "query"]
+          }
+        }
+      }
+    });
+
+    if (response.text) {
+      return JSON.parse(response.text) as SuggestedTopic[];
+    }
+    return [];
+  } catch (error) {
+    console.error("Topic generation failed:", error);
+    // Don't throw blocking error for this auxiliary feature, just return empty
+    return [];
   }
 };
