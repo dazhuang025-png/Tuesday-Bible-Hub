@@ -66,14 +66,34 @@ const PastorCorner: React.FC = () => {
     setFocus((prev) => {
       const trimmed = prev.trim();
       
-      // If already present, don't add again (User can delete manually if they want)
+      // If already present, don't add again
       if (trimmed.includes(query)) return prev;
 
-      // If empty, just set it
-      if (!trimmed) return query;
+      // Logic to determine the next list number
+      // 1. Find all instances of "Number." at the start of lines or start of string
+      // Match patterns like "1. ", "2. "
+      const numberMatches = trimmed.match(/(?:^|\n)(\d+)\.\s/g);
+      
+      let nextNum = 1;
+      if (numberMatches && numberMatches.length > 0) {
+        // Extract numbers and find max
+        const numbers = numberMatches.map(m => parseInt(m.replace(/[^\d]/g, ''), 10));
+        const maxNum = Math.max(...numbers);
+        if (!isNaN(maxNum)) {
+          nextNum = maxNum + 1;
+        }
+      } else if (trimmed.length > 0) {
+        // If there is text but no numbers, assume the first item implicitly or just append as 1.
+        // Actually, let's just append as "1." if no numbers found but text exists.
+        // Or if the user just typed random text, we start a list at the end.
+        nextNum = 1; 
+      }
 
-      // If text exists, append with a new line for neat arrangement
-      return `${trimmed}\n\n+ ${query}`;
+      // If empty, just start with "1. "
+      if (!trimmed) return `1. ${query}`;
+
+      // Append with double newline and next number
+      return `${trimmed}\n\n${nextNum}. ${query}`;
     });
   };
 
