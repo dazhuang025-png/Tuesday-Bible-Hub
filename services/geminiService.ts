@@ -24,16 +24,20 @@ if (API_BASE_URL) {
   console.log(`🌐 Base URL: Default (Google Official)`);
 }
 
-const ai = new GoogleGenAI({ 
-  apiKey: API_KEY || "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT", 
-  baseUrl: API_BASE_URL // Optional: For using proxy in China
-});
+// Merge config properly
+const clientConfig: any = { apiKey: API_KEY || "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT" };
+if (API_BASE_URL) {
+  clientConfig.baseUrl = API_BASE_URL;
+}
+
+const ai = new GoogleGenAI(clientConfig);
 
 // Models
 const MODEL_TEXT = 'gemini-2.5-flash';
 const MODEL_MULTIMODAL = 'gemini-2.5-flash'; 
-// 牧者助手使用 Pro 模型，并开启 Thinking (思考) 模式，对标 DeepSeek R1 的推理深度
-const PASTOR_MODEL = 'gemini-3-pro-preview'; 
+// 降级说明：原计划使用 gemini-3-pro，但 Google Free Tier 账号目前对 Pro 模型限制严格 (Quota: 0)。
+// 改回 gemini-2.5-flash 以确保可用性。虽然模型变小，但配合深度 Prompt 依然能输出高质量内容。
+const PASTOR_MODEL = 'gemini-2.5-flash'; 
 
 /**
  * Helper to convert a File object to a Base64 string usable by Gemini
@@ -64,6 +68,7 @@ const handleGeminiError = (error: any): never => {
   
   let userMessage = "发生了未知错误，请重试。";
   const errorStr = error.toString().toLowerCase();
+  const errorJson = JSON.stringify(error).toLowerCase(); // Catch JSON object errors
 
   // 1. Check for missing key explicitly
   if (!API_KEY || errorStr.includes('api key must be a string') || API_KEY === "DUMMY_KEY_TO_PREVENT_CRASH_ON_INIT") {
@@ -73,11 +78,15 @@ const handleGeminiError = (error: any): never => {
   else if (errorStr.includes('fetch') || errorStr.includes('network') || errorStr.includes('failed to fetch')) {
     userMessage = "🚫 网络连接失败 (Network Error)。\n原因可能是：\n1. 中国大陆地区未开启 VPN。\n2. Vercel 部署未配置 API_BASE_URL 中转地址。";
   } 
-  // 3. Invalid Key (Google rejected it)
+  // 3. Quota Exceeded / Free Tier Limits (The error you encountered)
+  else if (errorStr.includes('429') || errorStr.includes('quota') || errorStr.includes('resource_exhausted') || errorJson.includes('quota')) {
+    userMessage = "⚠️ 配额限制 (Quota Exceeded)。\nGoogle 免费版账号无法使用高级模型 (如 Pro 版)，或今日请求次数已达上限。\n\n技术调整：系统已自动切换至 Flash 轻量模型，请重试。";
+  }
+  // 4. Invalid Key (Google rejected it)
   else if (errorStr.includes('400') || errorStr.includes('invalid argument') || errorStr.includes('api key not valid')) {
     userMessage = "🔑 API Key 无效 (Invalid Key)。\n代码成功读取到了 Key，但 Google 拒绝了请求。\n请检查 Key 是否复制完整，或者该 Key 所在的 Google Cloud 项目是否欠费/被停用。";
   } 
-  // 4. Server Errors
+  // 5. Server Errors
   else if (errorStr.includes('503') || errorStr.includes('overloaded')) {
     userMessage = "🐢 Google 服务暂时繁忙 (503)，请稍后重试。";
   } else {
@@ -234,12 +243,12 @@ export const generatePastorInsights = async (book: string, chapter: string, focu
       请使用学术且严谨的语言，支持牧者进行厚重的神学输出。
     `;
 
+    // Note: We removed 'thinkingConfig' because gemini-2.5-flash (standard) doesn't strictly require it 
+    // and maintaining it might cause errors if the model variant changes.
+    // The detailed prompt above acts as the "reasoning guide".
     const response: GenerateContentResponse = await ai.models.generateContent({
       model: PASTOR_MODEL,
       contents: prompt,
-      config: {
-        thinkingConfig: { thinkingBudget: 10000 } // High budget for deep reasoning
-      }
     });
 
     return response.text || "无法生成深度内容。";

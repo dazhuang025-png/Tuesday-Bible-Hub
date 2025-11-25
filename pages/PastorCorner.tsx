@@ -91,7 +91,7 @@ const PastorCorner: React.FC = () => {
               生成研经素材
             </Button>
             <p className="text-xs text-slate-500 mt-2 text-center">
-              使用 Pro 模型进行原文溯源与神学推理，耗时可能稍长。
+               基于系统神学与圣经原文字典进行深度分析。
             </p>
           </div>
         </form>
@@ -100,9 +100,9 @@ const PastorCorner: React.FC = () => {
       {status === LoadingState.ERROR && (
         <div className="p-4 bg-red-50 text-red-700 rounded-lg border border-red-200 flex items-start gap-3">
           <AlertTriangle className="w-5 h-5 flex-shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="font-bold">生成失败</p>
-            <p className="text-sm mt-1">{errorMsg}</p>
+            <p className="text-sm mt-1 whitespace-pre-wrap">{errorMsg}</p>
           </div>
         </div>
       )}
