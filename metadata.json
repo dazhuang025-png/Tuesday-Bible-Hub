@@ -1,0 +1,7 @@
+{
+  "name": "Tuesday Bible Hub",
+  "description": "A dedicated tool for the Tuesday Bible study fellowship. Features preparation assistance for leaders, meeting summarization for admins, and deep theological insights for pastors.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
