@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Feather, BookMarked, ScrollText, AlertTriangle, Sparkles, ArrowRight, Info } from 'lucide-react';
+import { Feather, BookMarked, ScrollText, AlertTriangle, Sparkles, ArrowRight, Info, Check } from 'lucide-react';
 import Button from '../components/Button';
 import MarkdownRenderer from '../components/MarkdownRenderer';
 import { generatePastorInsights, generateTheologicalTopics, SuggestedTopic } from '../services/geminiService';
@@ -63,7 +63,18 @@ const PastorCorner: React.FC = () => {
   };
 
   const handleTopicClick = (query: string) => {
-    setFocus(query);
+    setFocus((prev) => {
+      const trimmed = prev.trim();
+      
+      // If already present, don't add again (User can delete manually if they want)
+      if (trimmed.includes(query)) return prev;
+
+      // If empty, just set it
+      if (!trimmed) return query;
+
+      // If text exists, append with a new line for neat arrangement
+      return `${trimmed}\n\n+ ${query}`;
+    });
   };
 
   return (
@@ -149,25 +160,36 @@ const PastorCorner: React.FC = () => {
             {/* Topic Chips */}
             {suggestedTopics.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-2 animate-fade-in">
-                {suggestedTopics.map((topic, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => handleTopicClick(topic.query)}
-                    className="inline-flex items-center text-xs px-3 py-1.5 bg-white border border-amber-200 text-amber-800 rounded-md hover:bg-amber-50 hover:border-amber-300 transition-colors shadow-sm text-left"
-                  >
-                    {topic.title}
-                    <ArrowRight className="w-3 h-3 ml-1 opacity-50 flex-shrink-0" />
-                  </button>
-                ))}
+                {suggestedTopics.map((topic, idx) => {
+                  const isSelected = focus.includes(topic.query);
+                  return (
+                    <button
+                      key={idx}
+                      type="button"
+                      onClick={() => handleTopicClick(topic.query)}
+                      className={`inline-flex items-center text-xs px-3 py-1.5 border rounded-md transition-all shadow-sm text-left ${
+                        isSelected 
+                          ? 'bg-amber-100 border-amber-300 text-amber-900 font-medium'
+                          : 'bg-white border-amber-200 text-amber-800 hover:bg-amber-50 hover:border-amber-300'
+                      }`}
+                    >
+                      {topic.title}
+                      {isSelected ? (
+                         <Check className="w-3 h-3 ml-1 text-amber-700 flex-shrink-0" />
+                      ) : (
+                         <ArrowRight className="w-3 h-3 ml-1 opacity-50 flex-shrink-0" />
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
 
             <textarea
               value={focus}
               onChange={(e) => setFocus(e.target.value)}
-              placeholder="如果您有特定的神学负担，请在此输入。或点击上方“探测关键议题”获取灵感..."
-              className="w-full rounded-lg border-slate-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none h-24 text-sm"
+              placeholder="如果您有特定的神学负担，请在此输入。或点击上方“探测关键议题”进行多选组合..."
+              className="w-full rounded-lg border-slate-300 border p-3 focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none h-24 text-sm font-sans"
             />
           </div>
 
